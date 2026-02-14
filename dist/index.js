@@ -1,11 +1,10 @@
-import * as process$1 from 'process';
-import * as path from 'path';
-import path__default from 'path';
-import * as require$$1 from 'fs';
-import require$$1__default from 'fs';
 import * as require$$0 from 'os';
 import require$$0__default from 'os';
 import require$$0$1 from 'crypto';
+import * as require$$1 from 'fs';
+import require$$1__default from 'fs';
+import * as path from 'path';
+import path__default from 'path';
 import require$$2 from 'http';
 import require$$3 from 'https';
 import require$$0$4 from 'net';
@@ -31,6 +30,7 @@ import require$$6 from 'string_decoder';
 import require$$0$9 from 'diagnostics_channel';
 import require$$2$2 from 'child_process';
 import require$$6$1 from 'timers';
+import * as process$1 from 'process';
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -29840,62 +29840,21 @@ async function runAgent() {
     if (!apiKey) {
         throw new Error('`warp_api_key` must be provided.');
     }
-    let command;
-    switch (channel) {
-        case 'stable':
-            command = 'oz';
-            break;
-        case 'preview':
-            command = 'oz-preview';
-            break;
-        default:
-            throw new Error(`Unsupported channel ${channel}`);
-    }
+    const command = resolveCommand(channel);
     await installOz(channel, coreExports.getInput('oz_version'));
-    const args = ['agent', 'run'];
-    if (prompt) {
-        args.push('--prompt', prompt);
-    }
-    if (savedPrompt) {
-        args.push('--saved-prompt', savedPrompt);
-    }
-    if (skill) {
-        args.push('--skill', skill);
-    }
-    if (model) {
-        args.push('--model', model);
-    }
-    if (name) {
-        args.push('--name', name);
-    }
-    if (mcp) {
-        args.push('--mcp', mcp);
-    }
-    const cwd = coreExports.getInput('cwd');
-    if (cwd) {
-        args.push('--cwd', cwd);
-    }
-    const profile = coreExports.getInput('profile');
-    if (profile) {
-        args.push('--profile', profile);
-    }
-    else {
-        args.push('--sandboxed');
-    }
-    const outputFormat = coreExports.getInput('output_format');
-    if (outputFormat) {
-        args.push('--output-format', outputFormat);
-    }
-    const shareRecipients = coreExports.getMultilineInput('share');
-    if (shareRecipients) {
-        for (const recipient of shareRecipients) {
-            args.push('--share', recipient);
-        }
-    }
-    // In debug mode, show Oz logs on stderr.
-    if (coreExports.isDebug()) {
-        args.push('--debug');
-    }
+    const args = buildArgs({
+        prompt,
+        savedPrompt,
+        skill,
+        model,
+        name,
+        mcp,
+        cwd: coreExports.getInput('cwd'),
+        profile: coreExports.getInput('profile'),
+        outputFormat: coreExports.getInput('output_format'),
+        shareRecipients: coreExports.getMultilineInput('share'),
+        debug: coreExports.isDebug()
+    });
     let execResult;
     try {
         execResult = await execExports.getExecOutput(command, args, {
@@ -29911,6 +29870,60 @@ async function runAgent() {
         throw error;
     }
     coreExports.setOutput('agent_output', execResult.stdout);
+}
+// Resolve the CLI command name from the channel.
+function resolveCommand(channel) {
+    switch (channel) {
+        case 'stable':
+            return 'oz';
+        case 'preview':
+            return 'oz-preview';
+        default:
+            throw new Error(`Unsupported channel ${channel}`);
+    }
+}
+// Build the CLI arguments array from the action inputs.
+function buildArgs(opts) {
+    const args = ['agent', 'run'];
+    if (opts.prompt) {
+        args.push('--prompt', opts.prompt);
+    }
+    if (opts.savedPrompt) {
+        args.push('--saved-prompt', opts.savedPrompt);
+    }
+    if (opts.skill) {
+        args.push('--skill', opts.skill);
+    }
+    if (opts.model) {
+        args.push('--model', opts.model);
+    }
+    if (opts.name) {
+        args.push('--name', opts.name);
+    }
+    if (opts.mcp) {
+        args.push('--mcp', opts.mcp);
+    }
+    if (opts.cwd) {
+        args.push('--cwd', opts.cwd);
+    }
+    if (opts.profile) {
+        args.push('--profile', opts.profile);
+    }
+    else {
+        args.push('--sandboxed');
+    }
+    if (opts.outputFormat) {
+        args.push('--output-format', opts.outputFormat);
+    }
+    if (opts.shareRecipients) {
+        for (const recipient of opts.shareRecipients) {
+            args.push('--share', recipient);
+        }
+    }
+    if (opts.debug) {
+        args.push('--debug');
+    }
+    return args;
 }
 // Install the Oz CLI, using the specified channel and version.
 async function installOz(channel, version) {
@@ -30006,6 +30019,7 @@ async function logOzLogFile(channel) {
         coreExports.warning(`warp.log not found at ${warpLogPath}`);
     }
 }
+
 try {
     await runAgent();
 }
